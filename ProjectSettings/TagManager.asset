@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Obstacle
   - musica
+  - Coin
   layers:
   - Default
   - TransparentFX
