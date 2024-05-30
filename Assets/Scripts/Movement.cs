@@ -4,36 +4,105 @@ using UnityEngine;
 
 public class Movement : MonoBehaviour
 {
-    public float speed = 5f; // Velocidad de movimiento del jugador
-    public float rotationSpeed = 5f; // Velocidad de rotación del jugador
+    [SerializeField] Transform playerCamera;
+    [SerializeField][Range(0.0f, 0.5f)] float mouseSmoothTime = 0.03f;
+    [SerializeField] bool cursorLock = true;
+    [SerializeField] float mouseSensitivity = 3.5f;
+    [SerializeField] float Speed = 6.0f;
+    [SerializeField][Range(0.0f, 0.5f)] float moveSmoothTime = 0.3f;
+    [SerializeField] float gravity = -30f;
+    [SerializeField] Transform groundCheck;
+    [SerializeField] LayerMask ground;  
 
-    Rigidbody rb;
+    public float jumpHeight = 6f;
+    float velocityY;
+    bool isGrounded;
 
-    // Start is called before the first frame update
+    float cameraCap;
+    Vector2 currentMouseDelta;
+    Vector2 currentMouseDeltaVelocity;
+    
+    CharacterController controller;
+    Vector2 currentDir;
+    Vector2 currentDirVelocity;
+    Vector3 velocity;
+
     void Start()
     {
-        rb = GetComponent<Rigidbody>(); // Obtener el componente Rigidbody
-        rb.freezeRotation = true; // Congelar la rotación del Rigidbody
+        controller = GetComponent<CharacterController>();
+
+        if (cursorLock)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = true;
+        }
     }
 
-    // Update is called once per frame
     void Update()
     {
-        // Obtener la entrada del teclado
-        float moveHorizontal = Input.GetAxis("Horizontal");
-        float moveVertical = Input.GetAxis("Vertical");
+        UpdateMouse();
+        UpdateMove();
+        UpdateRotation();
+    }
 
-        // Calcular el vector de movimiento
-        Vector3 movement = new Vector3(moveHorizontal, 0.0f, moveVertical);
+    void UpdateMouse()
+    {
+        Vector2 targetMouseDelta = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
 
-        // Si hay movimiento, rotar el objeto para que mire en la dirección del movimiento
-        if (movement != Vector3.zero)
+        currentMouseDelta = Vector2.SmoothDamp(currentMouseDelta, targetMouseDelta, ref currentMouseDeltaVelocity, mouseSmoothTime);
+
+        cameraCap -= currentMouseDelta.y * mouseSensitivity;
+
+        cameraCap = Mathf.Clamp(cameraCap, -90.0f, 90.0f);
+
+        playerCamera.localEulerAngles = Vector3.right * cameraCap;
+
+        transform.Rotate(Vector3.up * currentMouseDelta.x * mouseSensitivity);
+    }
+
+    void UpdateMove()
+    {
+        isGrounded = Physics.CheckSphere(groundCheck.position, 0.2f, ground);
+
+        Vector2 targetDir = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        targetDir.Normalize();
+
+        currentDir = Vector2.SmoothDamp(currentDir, targetDir, ref currentDirVelocity, moveSmoothTime);
+
+        velocityY += gravity * 2f * Time.deltaTime;
+
+        Vector3 velocity = (transform.forward * currentDir.y + transform.right * currentDir.x) * Speed + Vector3.up * velocityY;
+
+        controller.Move(velocity * Time.deltaTime);
+
+        if (isGrounded && Input.GetButtonDown("Jump"))
         {
-            Quaternion newRotation = Quaternion.LookRotation(movement);
-            transform.rotation = Quaternion.Slerp(transform.rotation, newRotation, rotationSpeed * Time.deltaTime);
+            velocityY = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 
-        // Aplicar el movimiento al Rigidbody
-        rb.velocity = movement * speed;
+        if(isGrounded! && controller.velocity.y < -1f)
+        {
+            velocityY = -8f;
+        }
+    }
+
+    void UpdateRotation()
+    {
+        if (Input.GetKeyDown(KeyCode.W))
+        {
+            transform.rotation = Quaternion.Euler(0, 0, 0);
+        }
+        if (Input.GetKeyDown(KeyCode.A))
+        {
+            transform.rotation = Quaternion.Euler(0, -90, 0);
+        }
+        if (Input.GetKeyDown(KeyCode.S))
+        {
+            transform.rotation = Quaternion.Euler(0, 180, 0);
+        }
+        if (Input.GetKeyDown(KeyCode.D))
+        {
+            transform.rotation = Quaternion.Euler(0, 90, 0);
+        }
     }
 }
